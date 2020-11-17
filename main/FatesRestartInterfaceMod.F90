@@ -14,11 +14,11 @@ module FatesRestartInterfaceMod
   use FatesIODimensionsMod,    only : fates_io_dimension_type
   use FatesIOVariableKindMod,  only : fates_io_variable_kind_type
   use FatesRestartVariableMod, only : fates_restart_variable_type
-  use FatesInterfaceMod,       only : nlevcoage
-  use FatesInterfaceMod,       only : bc_in_type 
-  use FatesInterfaceMod,       only : bc_out_type
-  use FatesInterfaceMod,       only : hlm_use_planthydro
-  use FatesInterfaceMod,       only : fates_maxElementsPerSite
+  use FatesInterfaceTypesMod,       only : nlevcoage
+  use FatesInterfaceTypesMod,       only : bc_in_type 
+  use FatesInterfaceTypesMod,       only : bc_out_type
+  use FatesInterfaceTypesMod,       only : hlm_use_planthydro
+  use FatesInterfaceTypesMod,       only : fates_maxElementsPerSite
   use EDCohortDynamicsMod,     only : UpdateCohortBioPhysRates
   use FatesHydraulicsMemMod,   only : nshell
   use FatesHydraulicsMemMod,   only : n_hypool_ag
@@ -31,12 +31,12 @@ module FatesRestartInterfaceMod
   use EDCohortDynamicsMod,     only : InitPRTObject
   use EDCohortDynamicsMod,     only : InitPRTBoundaryConditions
   use FatesPlantHydraulicsMod, only : InitHydrCohort
-  use FatesInterfaceMod,       only : nlevsclass
+  use FatesInterfaceTypesMod,       only : nlevsclass
   use FatesLitterMod,          only : litter_type
   use FatesLitterMod,          only : ncwd
   use FatesLitterMod,          only : ndcmpy
   use PRTGenericMod,           only : prt_global
-  use EDTypesMod,              only : num_elements
+  use PRTGenericMod,           only : num_elements
 
 
   ! CIME GLOBALS
@@ -106,6 +106,7 @@ module FatesRestartInterfaceMod
   integer :: ir_gpp_acc_hold_co
   integer :: ir_npp_acc_hold_co
   integer :: ir_resp_acc_hold_co
+  integer :: ir_resp_m_def_co
   integer :: ir_bmort_co
   integer :: ir_hmort_co
   integer :: ir_cmort_co
@@ -113,6 +114,16 @@ module FatesRestartInterfaceMod
   integer :: ir_smort_co
   integer :: ir_asmort_co
 
+  integer :: ir_daily_n_uptake_co
+  integer :: ir_daily_p_uptake_co
+  integer :: ir_daily_c_efflux_co
+  integer :: ir_daily_n_efflux_co
+  integer :: ir_daily_p_efflux_co
+  integer :: ir_daily_n_demand_co
+  integer :: ir_daily_p_demand_co
+  integer :: ir_daily_n_need_co
+  integer :: ir_daily_p_need_co
+  
   !Logging
   integer :: ir_lmort_direct_co
   integer :: ir_lmort_collateral_co
@@ -145,6 +156,14 @@ module FatesRestartInterfaceMod
   integer :: ir_agesinceanthrodist_pa
   integer :: ir_patchdistturbcat_pa
 
+  ! Litter Fluxes (needed to restart
+  ! with nutrient dynamics on, restarting
+  ! mid-day
+  integer :: ir_agcwd_frag_litt
+  integer :: ir_bgcwd_frag_litt
+  integer :: ir_lfines_frag_litt
+  integer :: ir_rfines_frag_litt
+
 
   ! Site level
   integer :: ir_watermem_siwm
@@ -152,6 +171,8 @@ module FatesRestartInterfaceMod
   integer :: ir_seed_bank_sift
   integer :: ir_spread_si
   integer :: ir_recrate_sift
+  integer :: ir_use_this_pft_sift
+  integer :: ir_area_pft_sift
   integer :: ir_fmortrate_cano_siscpf
   integer :: ir_fmortrate_usto_siscpf
   integer :: ir_imortrate_siscpf
@@ -173,10 +194,11 @@ module FatesRestartInterfaceMod
   integer :: ir_cwdbgin_flxdg
   integer :: ir_leaflittin_flxdg
   integer :: ir_rootlittin_flxdg
+  integer :: ir_efflux_flxdg
+  integer :: ir_uptake_flxdg
   integer :: ir_oldstock_mbal
   integer :: ir_errfates_mbal
   integer :: ir_prt_base     ! Base index for all PRT variables
-
 
   ! Hydraulic indices
   integer :: ir_hydro_th_ag_covec
@@ -714,6 +736,11 @@ contains
          units='kgC/indiv/year', flushval = flushzero, &
          hlms='CLM:ALM', initialize=initialize_variables, ivar=ivar, index = ir_resp_acc_hold_co )
 
+    call this%set_restart_var(vname='fates_resp_m_def', vtype=cohort_r8, &
+         long_name='ed cohort - maintenance respiration deficit', &
+         units='kgC/indiv', flushval = flushzero, &
+         hlms='CLM:ALM', initialize=initialize_variables, ivar=ivar, index = ir_resp_m_def_co )
+    
     call this%set_restart_var(vname='fates_bmort', vtype=cohort_r8, &
          long_name='ed cohort - background mortality rate', &
          units='/year', flushval = flushzero, &
@@ -729,6 +756,51 @@ contains
          units='/year', flushval = flushzero, &
          hlms='CLM:ALM', initialize=initialize_variables, ivar=ivar, index = ir_cmort_co )
 
+    call this%set_restart_var(vname='fates_daily_n_uptake', vtype=cohort_r8, &
+         long_name='fates cohort- daily nitrogen uptake', &
+         units='kg/plant/day', flushval = flushzero, &
+         hlms='CLM:ALM', initialize=initialize_variables, ivar=ivar, index = ir_daily_n_uptake_co )
+
+    call this%set_restart_var(vname='fates_daily_p_uptake', vtype=cohort_r8, &
+         long_name='fates cohort- daily phosphorus uptake', &
+         units='kg/plant/day', flushval = flushzero, &
+         hlms='CLM:ALM', initialize=initialize_variables, ivar=ivar, index = ir_daily_p_uptake_co )
+
+    call this%set_restart_var(vname='fates_daily_c_efflux', vtype=cohort_r8, &
+         long_name='fates cohort- daily carbon efflux', &
+         units='kg/plant/day', flushval = flushzero, &
+         hlms='CLM:ALM', initialize=initialize_variables, ivar=ivar, index = ir_daily_c_efflux_co )
+
+    call this%set_restart_var(vname='fates_daily_n_efflux', vtype=cohort_r8, &
+         long_name='fates cohort- daily nitrogen efflux', &
+         units='kg/plant/day', flushval = flushzero, &
+         hlms='CLM:ALM', initialize=initialize_variables, ivar=ivar, index = ir_daily_n_efflux_co )
+    
+    call this%set_restart_var(vname='fates_daily_p_efflux', vtype=cohort_r8, &
+         long_name='fates cohort- daily phosphorus efflux', &
+         units='kg/plant/day', flushval = flushzero, &
+         hlms='CLM:ALM', initialize=initialize_variables, ivar=ivar, index = ir_daily_p_efflux_co )
+
+    call this%set_restart_var(vname='fates_daily_p_demand', vtype=cohort_r8, &
+         long_name='fates cohort- daily phosphorus demand', &
+         units='kgP/plant/day', flushval = flushzero, &
+         hlms='CLM:ALM', initialize=initialize_variables, ivar=ivar, index = ir_daily_p_demand_co )
+
+    call this%set_restart_var(vname='fates_daily_n_demand', vtype=cohort_r8, &
+         long_name='fates cohort- daily nitrogen demand', &
+         units='kgN/plant/day', flushval = flushzero, &
+         hlms='CLM:ALM', initialize=initialize_variables, ivar=ivar, index = ir_daily_n_demand_co )
+
+    call this%set_restart_var(vname='fates_daily_p_need', vtype=cohort_r8, &
+         long_name='fates cohort- daily phosphorus need', &
+         units='kgP/plant/day', flushval = flushzero, &
+         hlms='CLM:ALM', initialize=initialize_variables, ivar=ivar, index = ir_daily_p_need_co )
+
+    call this%set_restart_var(vname='fates_daily_n_need', vtype=cohort_r8, &
+         long_name='fates cohort- daily nitrogen need', &
+         units='kgN/plant/day', flushval = flushzero, &
+         hlms='CLM:ALM', initialize=initialize_variables, ivar=ivar, index = ir_daily_n_need_co )
+    
     call this%set_restart_var(vname='fates_frmort', vtype=cohort_r8, &
          long_name='ed cohort - freezing mortality rate', &
          units='/year', flushval = flushzero, &
@@ -864,6 +936,26 @@ contains
            units='kg/m2', veclength=num_elements, flushval = flushzero, &
            hlms='CLM:ALM', initialize=initialize_variables, ivar=ivar, index = ir_seedgerm_litt)
 
+    call this%RegisterCohortVector(symbol_base='fates_ag_cwd_frag', vtype=cohort_r8, &
+            long_name_base='above ground CWD frag flux',  &
+            units='kg/m2/day', veclength=num_elements, flushval = flushzero, &
+            hlms='CLM:ALM', initialize=initialize_variables, ivar=ivar, index = ir_agcwd_frag_litt) 
+
+    call this%RegisterCohortVector(symbol_base='fates_bg_cwd_frag', vtype=cohort_r8, &
+            long_name_base='below ground CWD frag flux',  &
+            units='kg/m2/day', veclength=num_elements, flushval = flushzero, &
+            hlms='CLM:ALM', initialize=initialize_variables, ivar=ivar, index = ir_bgcwd_frag_litt) 
+    
+    call this%RegisterCohortVector(symbol_base='fates_lfines_frag', vtype=cohort_r8, &
+            long_name_base='frag flux from leaf fines',  &
+            units='kg/m2/day', veclength=num_elements, flushval = flushzero, &
+            hlms='CLM:ALM', initialize=initialize_variables, ivar=ivar, index = ir_lfines_frag_litt)
+    
+    call this%RegisterCohortVector(symbol_base='fates_rfines_frag', vtype=cohort_r8, &
+            long_name_base='frag flux from froot fines',  &
+            units='kg/m2/day', veclength=num_elements, flushval = flushzero, &
+            hlms='CLM:ALM', initialize=initialize_variables, ivar=ivar, index = ir_rfines_frag_litt)
+
 
     ! Site level flux diagnostics for each element
 
@@ -887,6 +979,17 @@ contains
            units='kg/ha', veclength=num_elements, flushval = flushzero, &
            hlms='CLM:ALM', initialize=initialize_variables, ivar=ivar, index = ir_rootlittin_flxdg)
 
+    call this%RegisterCohortVector(symbol_base='fates_efflux_scpf', vtype=cohort_r8, &
+           long_name_base='Efflux from plants to soil through roots', &
+           units='kg/day/ha', veclength=num_elements, flushval = flushzero, &
+           hlms='CLM:ALM', initialize=initialize_variables, ivar=ivar, index = ir_efflux_flxdg)
+
+    call this%RegisterCohortVector(symbol_base='fates_uptake_scpf', vtype=cohort_r8, &
+           long_name_base='Daily uptake for plants through roots', &
+           units='kg/day/ha', veclength=num_elements, flushval = flushzero, &
+           hlms='CLM:ALM', initialize=initialize_variables, ivar=ivar, index = ir_uptake_flxdg)
+
+    
     ! Site level Mass Balance State Accounting
 
     call this%RegisterCohortVector(symbol_base='fates_oldstock', vtype=site_r8, &
@@ -1004,6 +1107,17 @@ contains
          long_name='fates diagnostics on recruitment', &
          units='indiv/ha/day', flushval = flushzero, &
          hlms='CLM:ALM', initialize=initialize_variables, ivar=ivar, index = ir_recrate_sift)
+
+    call this%set_restart_var(vname='fates_use_this_pft', vtype=cohort_int, & !should this be cohort_int as above?
+         long_name='in fixed biogeog mode, is pft in gridcell?', &
+         units='0/1', flushval = flushone, &
+         hlms='CLM:ALM', initialize=initialize_variables, ivar=ivar, index = ir_use_this_pft_sift)
+
+    call this%set_restart_var(vname='fates_area_pft', vtype=cohort_r8, &
+         long_name='in fixed biogeog mode, what is pft area in gridcell?', &
+         units='0/1', flushval = flushzero, &
+         hlms='CLM:ALM', initialize=initialize_variables, ivar=ivar, index = ir_area_pft_sift)
+
 
     call this%set_restart_var(vname='fates_fmortrate_canopy', vtype=cohort_r8, &
          long_name='fates diagnostics on fire mortality canopy', &
@@ -1353,7 +1467,7 @@ contains
         hlms,initialize,ivar,index)
 
     use FatesUtilsMod, only : check_hlm_list
-    use FatesInterfaceMod, only : hlm_name
+    use FatesInterfaceTypesMod, only : hlm_name
 
     ! arguments
     class(fates_restart_interface_type) :: this
@@ -1404,8 +1518,8 @@ contains
 
  subroutine set_restart_vectors(this,nc,nsites,sites)
 
-   use FatesInterfaceMod, only : fates_maxElementsPerPatch
-   use FatesInterfaceMod, only : numpft
+   use FatesInterfaceTypesMod, only : fates_maxElementsPerPatch
+   use FatesInterfaceTypesMod, only : numpft
    use EDTypesMod, only : ed_site_type
    use EDTypesMod, only : ed_cohort_type
    use EDTypesMod, only : ed_patch_type
@@ -1461,6 +1575,7 @@ contains
     integer  :: ilyr             ! soil layer index
     integer  :: nlevsoil         ! total soil layers in patch of interest
     integer  :: k,j,i            ! indices to the radiation matrix
+    integer  :: iscpf            ! multiplex loop counter for size x pft
     integer  :: ir_prt_var       ! loop counter for var x position
     integer  :: i_var            ! loop counter for PRT variables
     integer  :: i_pos            ! loop counter for discrete PRT positions
@@ -1508,9 +1623,19 @@ contains
            rio_gpp_acc_hold_co         => this%rvars(ir_gpp_acc_hold_co)%r81d, &
            rio_resp_acc_hold_co        => this%rvars(ir_resp_acc_hold_co)%r81d, &
            rio_npp_acc_hold_co         => this%rvars(ir_npp_acc_hold_co)%r81d, &
+           rio_resp_m_def_co           => this%rvars(ir_resp_m_def_co)%r81d, & 
            rio_bmort_co                => this%rvars(ir_bmort_co)%r81d, &
            rio_hmort_co                => this%rvars(ir_hmort_co)%r81d, &
            rio_cmort_co                => this%rvars(ir_cmort_co)%r81d, &
+           rio_daily_n_uptake_co       => this%rvars(ir_daily_n_uptake_co)%r81d, &
+           rio_daily_p_uptake_co       => this%rvars(ir_daily_p_uptake_co)%r81d, &
+           rio_daily_c_efflux_co       => this%rvars(ir_daily_c_efflux_co)%r81d, & 
+           rio_daily_n_efflux_co       => this%rvars(ir_daily_n_efflux_co)%r81d, &      
+           rio_daily_p_efflux_co       => this%rvars(ir_daily_p_efflux_co)%r81d, &
+           rio_daily_n_demand_co       => this%rvars(ir_daily_n_demand_co)%r81d, &
+           rio_daily_p_demand_co       => this%rvars(ir_daily_p_demand_co)%r81d, &
+           rio_daily_n_need_co         => this%rvars(ir_daily_n_need_co)%r81d, &
+           rio_daily_p_need_co         => this%rvars(ir_daily_p_need_co)%r81d, &
            rio_smort_co                => this%rvars(ir_smort_co)%r81d, &
            rio_asmort_co               => this%rvars(ir_asmort_co)%r81d, &
            rio_frmort_co               => this%rvars(ir_frmort_co)%r81d, &
@@ -1533,6 +1658,8 @@ contains
            rio_watermem_siwm           => this%rvars(ir_watermem_siwm)%r81d, &
            rio_vegtempmem_sitm         => this%rvars(ir_vegtempmem_sitm)%r81d, &
            rio_recrate_sift            => this%rvars(ir_recrate_sift)%r81d, &
+           rio_use_this_pft_sift       => this%rvars(ir_use_this_pft_sift)%int1d, &
+           rio_area_pft_sift           => this%rvars(ir_area_pft_sift)%r81d, &
            rio_fmortrate_cano_siscpf   => this%rvars(ir_fmortrate_cano_siscpf)%r81d, &
            rio_fmortrate_usto_siscpf   => this%rvars(ir_fmortrate_usto_siscpf)%r81d, &
            rio_imortrate_siscpf        => this%rvars(ir_imortrate_siscpf)%r81d, &
@@ -1578,7 +1705,6 @@ contains
 
           ! Hydraulics counters  lyr = hydraulic layer, shell = rhizosphere shell
           io_idx_si_lyr_shell = io_idx_co_1st
-          io_idx_si_scpf = io_idx_co_1st
           io_idx_si_sc   = io_idx_co_1st
           io_idx_si_capf = io_idx_co_1st
           io_idx_si_cacls= io_idx_co_1st
@@ -1587,12 +1713,21 @@ contains
           do i_pft = 1,numpft
              rio_recrate_sift(io_idx_co_1st+i_pft-1)   = sites(s)%recruitment_rate(i_pft)
           end do
-
+          
+          do i_pft = 1,numpft
+             rio_use_this_pft_sift(io_idx_co_1st+i_pft-1)   = sites(s)%use_this_pft(i_pft)        
+          end do
+          
+          do i_pft = 1,numpft
+             rio_area_pft_sift(io_idx_co_1st+i_pft-1)      = sites(s)%area_pft(i_pft)
+          end do
+          
           do el = 1, num_elements
 
              io_idx_si_cwd = io_idx_co_1st
              io_idx_si_pft = io_idx_co_1st
-
+             io_idx_si_scpf = io_idx_co_1st
+             
              do i_cwd=1,ncwd
                 this%rvars(ir_cwdagin_flxdg+el-1)%r81d(io_idx_si_cwd) = sites(s)%flux_diags(el)%cwd_ag_input(i_cwd)
                 this%rvars(ir_cwdbgin_flxdg+el-1)%r81d(io_idx_si_cwd) = sites(s)%flux_diags(el)%cwd_bg_input(i_cwd)
@@ -1605,6 +1740,17 @@ contains
                 io_idx_si_pft = io_idx_si_pft + 1
              end do
 
+             iscpf = 1
+             do i_scls = 1, nlevsclass
+                do i_pft = 1, numpft
+                   this%rvars(ir_efflux_flxdg+el-1)%r81d(io_idx_si_scpf) = sites(s)%flux_diags(el)%nutrient_efflux_scpf(iscpf)
+                   this%rvars(ir_uptake_flxdg+el-1)%r81d(io_idx_si_scpf) = sites(s)%flux_diags(el)%nutrient_uptake_scpf(iscpf)
+                   iscpf = iscpf + 1
+                   io_idx_si_scpf = io_idx_si_scpf + 1
+                end do
+             end do
+             
+             
              this%rvars(ir_oldstock_mbal+el-1)%r81d(io_idx_si) = sites(s)%mass_balance(el)%old_stock
              this%rvars(ir_errfates_mbal+el-1)%r81d(io_idx_si) = sites(s)%mass_balance(el)%err_fates
 
@@ -1716,6 +1862,8 @@ contains
                 rio_resp_acc_hold_co(io_idx_co) = ccohort%resp_acc_hold
                 rio_npp_acc_hold_co(io_idx_co) = ccohort%npp_acc_hold
 
+                rio_resp_m_def_co(io_idx_co)   = ccohort%resp_m_def
+
                 rio_bmort_co(io_idx_co)        = ccohort%bmort
                 rio_hmort_co(io_idx_co)        = ccohort%hmort
                 rio_cmort_co(io_idx_co)        = ccohort%cmort
@@ -1723,6 +1871,19 @@ contains
                 rio_asmort_co(io_idx_co)       = ccohort%asmort
                 rio_frmort_co(io_idx_co)       = ccohort%frmort                
 
+                ! Nutrient uptake/efflux
+                rio_daily_n_uptake_co(io_idx_co) = ccohort%daily_n_uptake
+                rio_daily_p_uptake_co(io_idx_co) = ccohort%daily_p_uptake
+                
+                rio_daily_c_efflux_co(io_idx_co) = ccohort%daily_c_efflux
+                rio_daily_n_efflux_co(io_idx_co) = ccohort%daily_n_efflux
+                rio_daily_p_efflux_co(io_idx_co) = ccohort%daily_p_efflux
+
+                rio_daily_n_demand_co(io_idx_co) = ccohort%daily_n_demand
+                rio_daily_p_demand_co(io_idx_co) = ccohort%daily_p_demand
+                rio_daily_n_need_co(io_idx_co)   = ccohort%daily_n_need2
+                rio_daily_p_need_co(io_idx_co)   = ccohort%daily_p_need2
+                 
                 !Logging
                 rio_lmort_direct_co(io_idx_co)       = ccohort%lmort_direct
                 rio_lmort_collateral_co(io_idx_co)   = ccohort%lmort_collateral
@@ -1799,18 +1960,22 @@ contains
 
                  do i = 1,ndcmpy
                      this%rvars(ir_leaf_litt+el)%r81d(io_idx_pa_dc) = litt%leaf_fines(i)
+                     this%rvars(ir_lfines_frag_litt+el)%r81d(io_idx_pa_dc) = litt%leaf_fines_frag(i)
                      io_idx_pa_dc = io_idx_pa_dc + 1
                      do ilyr=1,sites(s)%nlevsoil
                          this%rvars(ir_fnrt_litt+el)%r81d(io_idx_pa_dcsl) = litt%root_fines(i,ilyr)
+                         this%rvars(ir_rfines_frag_litt+el)%r81d(io_idx_pa_dcsl) = litt%root_fines_frag(i,ilyr)
                          io_idx_pa_dcsl = io_idx_pa_dcsl + 1
                      end do
                  end do
                  
                  do i = 1,ncwd
                      this%rvars(ir_agcwd_litt+el)%r81d(io_idx_pa_cwd) = litt%ag_cwd(i)
+                     this%rvars(ir_agcwd_frag_litt+el)%r81d(io_idx_pa_cwd) = litt%ag_cwd_frag(i)
                      io_idx_pa_cwd = io_idx_pa_cwd + 1
                      do ilyr=1,sites(s)%nlevsoil
                          this%rvars(ir_bgcwd_litt+el)%r81d(io_idx_pa_cwsl) = litt%bg_cwd(i,ilyr)
+                         this%rvars(ir_bgcwd_frag_litt+el)%r81d(io_idx_pa_cwsl) = litt%bg_cwd_frag(i,ilyr)
                          io_idx_pa_cwsl = io_idx_pa_cwsl + 1
                      end do
                  end do
@@ -1844,10 +2009,10 @@ contains
              
           enddo ! cpatch do while
           
-
+          io_idx_si_scpf = io_idx_co_1st
+          
           ! Fill the site level diagnostics arrays
           do i_scls = 1, nlevsclass
-             
              do i_pft = 1, numpft
              
                 rio_fmortrate_cano_siscpf(io_idx_si_scpf)  = sites(s)%fmort_rate_canopy(i_scls, i_pft)
@@ -1955,7 +2120,7 @@ contains
      use EDTypesMod,           only : ed_cohort_type
      use EDTypesMod,           only : ed_patch_type
      use EDTypesMod,           only : maxSWb
-     use FatesInterfaceMod,    only : fates_maxElementsPerPatch
+     use FatesInterfaceTypesMod,    only : fates_maxElementsPerPatch
      
      use EDTypesMod,           only : maxpft
      use EDTypesMod,           only : area
@@ -2147,8 +2312,8 @@ contains
      use EDTypesMod, only : ed_cohort_type
      use EDTypesMod, only : ed_patch_type
      use EDTypesMod, only : maxSWb
-     use FatesInterfaceMod, only : numpft
-     use FatesInterfaceMod, only : fates_maxElementsPerPatch
+     use FatesInterfaceTypesMod, only : numpft
+     use FatesInterfaceTypesMod, only : fates_maxElementsPerPatch
      use EDTypesMod, only : numWaterMem
      use EDTypesMod, only : num_vegtemp_mem
      use FatesSizeAgeTypeIndicesMod, only : get_age_class_index
@@ -2203,6 +2368,7 @@ contains
      integer  :: el               ! loop counter for elements
      integer  :: nlevsoil         ! number of soil layers
      integer  :: ilyr             ! soil layer loop counter
+     integer  :: iscpf            ! multiplex loop counter for size x pft
      integer  :: ir_prt_var       ! loop counter for var x position
      integer  :: i_cwd            ! loop counter for cwd
      integer  :: i_var            ! loop counter for PRT variables
@@ -2245,9 +2411,19 @@ contains
           rio_gpp_acc_hold_co         => this%rvars(ir_gpp_acc_hold_co)%r81d, &
           rio_resp_acc_hold_co        => this%rvars(ir_resp_acc_hold_co)%r81d, &
           rio_npp_acc_hold_co         => this%rvars(ir_npp_acc_hold_co)%r81d, &
+          rio_resp_m_def_co           => this%rvars(ir_resp_m_def_co)%r81d, & 
           rio_bmort_co                => this%rvars(ir_bmort_co)%r81d, &
           rio_hmort_co                => this%rvars(ir_hmort_co)%r81d, &
           rio_cmort_co                => this%rvars(ir_cmort_co)%r81d, &
+          rio_daily_n_uptake_co       => this%rvars(ir_daily_n_uptake_co)%r81d, & 
+          rio_daily_p_uptake_co       => this%rvars(ir_daily_p_uptake_co)%r81d, &       
+          rio_daily_c_efflux_co       => this%rvars(ir_daily_c_efflux_co)%r81d, & 
+          rio_daily_n_efflux_co       => this%rvars(ir_daily_n_efflux_co)%r81d, &      
+          rio_daily_p_efflux_co       => this%rvars(ir_daily_p_efflux_co)%r81d, &
+          rio_daily_n_demand_co       => this%rvars(ir_daily_n_demand_co)%r81d, &
+          rio_daily_p_demand_co       => this%rvars(ir_daily_p_demand_co)%r81d, &
+          rio_daily_n_need_co         => this%rvars(ir_daily_n_need_co)%r81d, &
+          rio_daily_p_need_co         => this%rvars(ir_daily_p_need_co)%r81d, &
           rio_smort_co                => this%rvars(ir_smort_co)%r81d, &
           rio_asmort_co               => this%rvars(ir_asmort_co)%r81d, &
           rio_frmort_co               => this%rvars(ir_frmort_co)%r81d, &
@@ -2270,6 +2446,8 @@ contains
           rio_watermem_siwm           => this%rvars(ir_watermem_siwm)%r81d, &
           rio_vegtempmem_sitm         => this%rvars(ir_vegtempmem_sitm)%r81d, &
           rio_recrate_sift            => this%rvars(ir_recrate_sift)%r81d, &
+          rio_use_this_pft_sift       => this%rvars(ir_use_this_pft_sift)%int1d, &
+          rio_area_pft_sift           => this%rvars(ir_area_pft_sift)%r81d,&
           rio_fmortrate_cano_siscpf   => this%rvars(ir_fmortrate_cano_siscpf)%r81d, &
           rio_fmortrate_usto_siscpf   => this%rvars(ir_fmortrate_usto_siscpf)%r81d, &
           rio_imortrate_siscpf        => this%rvars(ir_imortrate_siscpf)%r81d, &
@@ -2313,14 +2491,20 @@ contains
           do i_pft = 1,numpft 
              sites(s)%recruitment_rate(i_pft) = rio_recrate_sift(io_idx_co_1st+i_pft-1)
           enddo
-
+          
+         !variables for fixed biogeography mode. These are currently used in restart even when this is off. 
+          do i_pft = 1,numpft
+             sites(s)%use_this_pft(i_pft) = rio_use_this_pft_sift(io_idx_co_1st+i_pft-1)
+             sites(s)%area_pft(i_pft)     = rio_area_pft_sift(io_idx_co_1st+i_pft-1)
+          enddo
 
           ! Mass balance and diagnostics across elements at the site level
           do el = 1, num_elements
 
              io_idx_si_cwd = io_idx_co_1st
              io_idx_si_pft = io_idx_co_1st
-
+             io_idx_si_scpf = io_idx_co_1st
+             
              do i_cwd=1,ncwd
                 sites(s)%flux_diags(el)%cwd_ag_input(i_cwd) = this%rvars(ir_cwdagin_flxdg+el-1)%r81d(io_idx_si_cwd)
                 sites(s)%flux_diags(el)%cwd_bg_input(i_cwd) = this%rvars(ir_cwdbgin_flxdg+el-1)%r81d(io_idx_si_cwd)
@@ -2331,10 +2515,21 @@ contains
                 sites(s)%flux_diags(el)%leaf_litter_input(i_pft) = this%rvars(ir_leaflittin_flxdg+el-1)%r81d(io_idx_si_pft)
                 sites(s)%flux_diags(el)%root_litter_input(i_pft) = this%rvars(ir_rootlittin_flxdg+el-1)%r81d(io_idx_si_pft)
                 io_idx_si_pft = io_idx_si_pft + 1
-            end do
+             end do
+
+             iscpf = 1
+             do i_scls = 1, nlevsclass
+                do i_pft = 1, numpft
+                   sites(s)%flux_diags(el)%nutrient_efflux_scpf(iscpf) = this%rvars(ir_efflux_flxdg+el-1)%r81d(io_idx_si_scpf)
+                   sites(s)%flux_diags(el)%nutrient_uptake_scpf(iscpf) = this%rvars(ir_uptake_flxdg+el-1)%r81d(io_idx_si_scpf)
+                   iscpf = iscpf + 1
+                   io_idx_si_scpf = io_idx_si_scpf + 1
+                end do
+             end do
+             
             
-            sites(s)%mass_balance(el)%old_stock = this%rvars(ir_oldstock_mbal+el-1)%r81d(io_idx_si)
-            sites(s)%mass_balance(el)%err_fates = this%rvars(ir_errfates_mbal+el-1)%r81d(io_idx_si)
+             sites(s)%mass_balance(el)%old_stock = this%rvars(ir_oldstock_mbal+el-1)%r81d(io_idx_si)
+             sites(s)%mass_balance(el)%err_fates = this%rvars(ir_errfates_mbal+el-1)%r81d(io_idx_si)
 
           end do
 
@@ -2415,6 +2610,7 @@ contains
                 ccohort%gpp_acc_hold = rio_gpp_acc_hold_co(io_idx_co)
                 ccohort%resp_acc_hold = rio_resp_acc_hold_co(io_idx_co)
                 ccohort%npp_acc_hold = rio_npp_acc_hold_co(io_idx_co)
+                ccohort%resp_m_def   = rio_resp_m_def_co(io_idx_co)
 
                 ccohort%bmort        = rio_bmort_co(io_idx_co)
                 ccohort%hmort        = rio_hmort_co(io_idx_co)
@@ -2422,6 +2618,18 @@ contains
                 ccohort%smort        = rio_smort_co(io_idx_co)
                 ccohort%asmort       = rio_asmort_co(io_idx_co)
                 ccohort%frmort        = rio_frmort_co(io_idx_co)
+                
+                ! Nutrient uptake / efflux
+                ccohort%daily_n_uptake = rio_daily_n_uptake_co(io_idx_co)
+                ccohort%daily_p_uptake = rio_daily_p_uptake_co(io_idx_co)
+                ccohort%daily_c_efflux = rio_daily_c_efflux_co(io_idx_co)
+                ccohort%daily_n_efflux = rio_daily_n_efflux_co(io_idx_co)
+                ccohort%daily_p_efflux = rio_daily_p_efflux_co(io_idx_co)
+                
+                ccohort%daily_n_demand = rio_daily_n_demand_co(io_idx_co) 
+                ccohort%daily_p_demand = rio_daily_p_demand_co(io_idx_co)
+                ccohort%daily_n_need2  = rio_daily_n_need_co(io_idx_co)
+                ccohort%daily_p_need2  = rio_daily_p_need_co(io_idx_co)
 
                 !Logging
                 ccohort%lmort_direct       = rio_lmort_direct_co(io_idx_co)
@@ -2520,9 +2728,11 @@ contains
 
                   do i = 1,ndcmpy
                      litt%leaf_fines(i) = this%rvars(ir_leaf_litt+el)%r81d(io_idx_pa_dc)
+                     litt%leaf_fines_frag(i) = this%rvars(ir_lfines_frag_litt+el)%r81d(io_idx_pa_dc)
                      io_idx_pa_dc       = io_idx_pa_dc + 1
                      do ilyr=1,nlevsoil
-                         litt%root_fines(i,ilyr) = this%rvars(ir_fnrt_litt+el)%r81d(io_idx_pa_dcsl)
+                         litt%root_fines(i,ilyr)      = this%rvars(ir_fnrt_litt+el)%r81d(io_idx_pa_dcsl)
+                         litt%root_fines_frag(i,ilyr) = this%rvars(ir_rfines_frag_litt+el)%r81d(io_idx_pa_dcsl)
                          io_idx_pa_dcsl = io_idx_pa_dcsl + 1
                      end do
                  end do
@@ -2530,10 +2740,12 @@ contains
                  do i = 1,ncwd
 
                      litt%ag_cwd(i) = this%rvars(ir_agcwd_litt+el)%r81d(io_idx_pa_cwd)
+                     litt%ag_cwd_frag(i) = this%rvars(ir_agcwd_frag_litt+el)%r81d(io_idx_pa_cwd)
                      io_idx_pa_cwd = io_idx_pa_cwd + 1
                      
                      do ilyr=1,nlevsoil
                          litt%bg_cwd(i,ilyr) = this%rvars(ir_bgcwd_litt+el)%r81d(io_idx_pa_cwsl)
+                         litt%bg_cwd_frag(i,ilyr) = this%rvars(ir_bgcwd_frag_litt+el)%r81d(io_idx_pa_cwsl)
                          io_idx_pa_cwsl = io_idx_pa_cwsl + 1
                      end do
                  end do
@@ -2612,10 +2824,12 @@ contains
           
 
           ! Fill the site level diagnostics arrays
+          ! -----------------------------------------------------------------------------
+
+          io_idx_si_scpf = io_idx_co_1st
+
           do i_scls = 1,nlevsclass
-             
              do i_pft = 1, numpft
-             
                 sites(s)%fmort_rate_canopy(i_scls, i_pft)  = rio_fmortrate_cano_siscpf(io_idx_si_scpf)
                 sites(s)%fmort_rate_ustory(i_scls, i_pft)  = rio_fmortrate_usto_siscpf(io_idx_si_scpf)
                 sites(s)%imort_rate(i_scls, i_pft)         = rio_imortrate_siscpf(io_idx_si_scpf)
@@ -2624,7 +2838,6 @@ contains
                 sites(s)%term_nindivs_canopy(i_scls,i_pft) = rio_termnindiv_cano_siscpf(io_idx_si_scpf)
                 sites(s)%term_nindivs_ustory(i_scls,i_pft) = rio_termnindiv_usto_siscpf(io_idx_si_scpf)
                 sites(s)%growthflux_fusion(i_scls, i_pft)  = rio_growflx_fusion_siscpf(io_idx_si_scpf)
-
                 io_idx_si_scpf = io_idx_si_scpf + 1
              end do
 
@@ -2679,7 +2892,7 @@ contains
      use EDTypesMod, only            : ed_site_type
      use EDTypesMod, only            : ed_patch_type
      use EDSurfaceRadiationMod, only : PatchNormanRadiation
-     use FatesInterfaceMod, only     : hlm_numSWb
+     use FatesInterfaceTypesMod, only     : hlm_numSWb
 
      ! !ARGUMENTS:
      class(fates_restart_interface_type) , intent(inout) :: this

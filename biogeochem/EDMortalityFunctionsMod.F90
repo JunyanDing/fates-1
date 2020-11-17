@@ -13,13 +13,13 @@ module EDMortalityFunctionsMod
    use FatesConstantsMod     , only : itrue,ifalse
    use FatesAllometryMod     , only : bleaf
    use FatesAllometryMod     , only : storage_fraction_of_target
-   use FatesInterfaceMod     , only : bc_in_type
-   use FatesInterfaceMod     , only : hlm_use_ed_prescribed_phys
-   use FatesInterfaceMod     , only : hlm_freq_day
-   use FatesInterfaceMod     , only : hlm_use_planthydro
+   use FatesInterfaceTypesMod     , only : bc_in_type
+   use FatesInterfaceTypesMod     , only : hlm_use_ed_prescribed_phys
+   use FatesInterfaceTypesMod     , only : hlm_freq_day
+   use FatesInterfaceTypesMod     , only : hlm_use_planthydro
    use EDLoggingMortalityMod , only : LoggingMortality_frac
    use EDParamsMod           , only : fates_mortality_disturbance_fraction
-   use FatesInterfaceMod     , only : bc_in_type
+   use FatesInterfaceTypesMod     , only : bc_in_type
 
    use PRTGenericMod,          only : all_carbon_elements
    use PRTGenericMod,          only : store_organ
@@ -50,7 +50,7 @@ contains
     ! ============================================================================
     
     use FatesConstantsMod,  only : tfrz => t_water_freeze_k_1atm
-    use FatesInterfaceMod        , only : hlm_hio_ignore_val   
+    use FatesInterfaceTypesMod        , only : hlm_hio_ignore_val   
     use FatesConstantsMod,  only : fates_check_param_set
     
     type (ed_cohort_type), intent(in) :: cohort_in 
@@ -208,7 +208,7 @@ if (hlm_use_ed_prescribed_phys .eq. ifalse) then
 
  ! ============================================================================
 
- subroutine Mortality_Derivative( currentSite, currentCohort, bc_in)
+ subroutine Mortality_Derivative( currentSite, currentCohort, bc_in, frac_site_primary)
 
     !
     ! !DESCRIPTION:
@@ -218,12 +218,13 @@ if (hlm_use_ed_prescribed_phys .eq. ifalse) then
     !
     ! !USES:
 
-    use FatesInterfaceMod, only : hlm_freq_day
+    use FatesInterfaceTypesMod, only : hlm_freq_day
     !
     ! !ARGUMENTS    
     type(ed_site_type), intent(inout), target  :: currentSite
     type(ed_cohort_type),intent(inout), target :: currentCohort
     type(bc_in_type), intent(in)               :: bc_in
+    real(r8), intent(in)                       :: frac_site_primary
     !
     ! !LOCAL VARIABLES:
     real(r8) :: cmort    ! starvation mortality rate (fraction per year)
@@ -245,7 +246,13 @@ if (hlm_use_ed_prescribed_phys .eq. ifalse) then
                                currentCohort%lmort_direct,                       &
                                currentCohort%lmort_collateral,                    &
                                currentCohort%lmort_infra,                        &
-                               currentCohort%l_degrad)
+                               currentCohort%l_degrad, &
+                               bc_in%hlm_harvest_rates, &
+                               bc_in%hlm_harvest_catnames, &
+                               bc_in%hlm_harvest_units, &
+                               currentCohort%patchptr%anthro_disturbance_label, &
+                               currentCohort%patchptr%age_since_anthro_disturbance, &
+                               frac_site_primary)
 
     
     

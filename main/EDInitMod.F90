@@ -12,8 +12,9 @@ module EDInitMod
   use FatesGlobals              , only : endrun => fates_endrun
   use EDTypesMod                , only : nclmax
   use FatesGlobals              , only : fates_log
-  use FatesInterfaceMod         , only : hlm_is_restart
+  use FatesInterfaceTypesMod         , only : hlm_is_restart
   use EDPftvarcon               , only : EDPftvarcon_inst
+  use PRTParametersMod          , only : prt_params
   use EDCohortDynamicsMod       , only : create_cohort, fuse_cohorts, sort_cohorts
   use EDCohortDynamicsMod       , only : InitPRTObject
   use EDPatchDynamicsMod        , only : create_patch
@@ -27,22 +28,22 @@ module EDInitMod
   use EDTypesMod                , only : init_spread_inventory
   use EDTypesMod                , only : leaves_on
   use EDTypesMod                , only : leaves_off
-  use EDTypesMod                , only : num_elements
-  use EDTypesMod                , only : element_list
+  use PRTGenericMod             , only : num_elements
+  use PRTGenericMod             , only : element_list
   use EDTypesMod                , only : phen_cstat_nevercold
   use EDTypesMod                , only : phen_cstat_iscold
   use EDTypesMod                , only : phen_dstat_timeoff
   use EDTypesMod                , only : phen_dstat_moistoff
   use EDTypesMod                , only : phen_cstat_notcold
   use EDTypesMod                , only : phen_dstat_moiston
-  use EDTypesMod                , only : element_pos
-  use FatesInterfaceMod         , only : bc_in_type
-  use FatesInterfaceMod         , only : hlm_use_planthydro
-  use FatesInterfaceMod         , only : hlm_use_inventory_init
-  use FatesInterfaceMod         , only : numpft
-  use FatesInterfaceMod         , only : nleafage
-  use FatesInterfaceMod         , only : nlevsclass
-  use FatesInterfaceMod         , only : nlevcoage
+  use FatesInterfaceTypesMod         , only : bc_in_type
+  use FatesInterfaceTypesMod         , only : hlm_use_planthydro
+  use FatesInterfaceTypesMod         , only : hlm_use_inventory_init
+  use FatesInterfaceTypesMod         , only : hlm_use_fixed_biogeog
+  use FatesInterfaceTypesMod         , only : numpft
+  use FatesInterfaceTypesMod         , only : nleafage
+  use FatesInterfaceTypesMod         , only : nlevsclass
+  use FatesInterfaceTypesMod         , only : nlevcoage
   use FatesAllometryMod         , only : h2d_allom
   use FatesAllometryMod         , only : bagw_allom
   use FatesAllometryMod         , only : bbgw_allom
@@ -52,7 +53,7 @@ module EDInitMod
   use FatesAllometryMod         , only : bdead_allom
   use FatesAllometryMod         , only : bstore_allom
 
-  use FatesInterfaceMod,      only : hlm_parteh_mode
+  use FatesInterfaceTypesMod,      only : hlm_parteh_mode
   use PRTGenericMod,          only : prt_carbon_allom_hyp
   use PRTGenericMod,          only : prt_cnp_flex_allom_hyp
   use PRTGenericMod,          only : prt_vartypes
@@ -66,9 +67,6 @@ module EDInitMod
   use PRTGenericMod,          only : nitrogen_element
   use PRTGenericMod,          only : phosphorus_element
   use PRTGenericMod,          only : SetState
-  use FatesPlantHydraulicsMod,  only : InitHydroGlobals
-  use PRTAllometricCarbonMod, only : InitPRTGlobalAllometricCarbon
-!   use PRTAllometricCNPMod, only    : InitPRTGlobalAllometricCNP
 
   ! CIME GLOBALS
   use shr_log_mod               , only : errMsg => shr_log_errMsg
@@ -85,99 +83,12 @@ module EDInitMod
   public  :: init_site_vars
   public  :: init_patches
   public  :: set_site_properties
-  public  :: InitFatesGlobals
   private :: init_cohorts
 
 
   ! ============================================================================
 
 contains
-
-  ! ============================================================================
-
-   ! ====================================================================================
-
-   subroutine InitFatesGlobals(masterproc)
-
-       ! --------------------------------------------------------------------------
-       ! This subroutine is simply a wrapper that calls various FATES modules
-       ! that initialize global objects, things, constructs, etc. Globals only
-       ! need to be set once during initialization, for each machine, and this
-       ! should not be called for forked SMP processes.
-       ! --------------------------------------------------------------------------
-
-       logical,intent(in) :: masterproc        ! This is useful for reporting
-                                              ! and diagnostics so info is not printed
-                                              ! on numerous nodes to standard out. This
-                                              ! is not used to filter which machines
-                                              ! (nodes) to run these procedures, they
-                                              ! should be run on ALL nodes.
-
-       ! Initialize PARTEH globals 
-       ! (like the element lists, and mapping tables)
-       call InitPARTEHGlobals()
-
-       ! Initialize Hydro globals 
-       ! (like water retention functions)
-       call InitHydroGlobals()
-
-
-       return
-   end subroutine InitFatesGlobals
-
-   ! ====================================================================================
-   
-
-   subroutine InitPARTEHGlobals()
-   
-     ! Initialize the Plant Allocation and Reactive Transport
-     ! global functions and mapping tables
-     ! Also associate the elements defined in PARTEH with a list in FATES
-     ! "element_list" is useful because it allows the fates side of the code
-     ! to loop through elements, and call the correct PARTEH interfaces
-     ! automatically.
-     
-     select case(hlm_parteh_mode)
-     case(prt_carbon_allom_hyp)
-
-        num_elements = 1
-        allocate(element_list(num_elements))
-        element_list(1) = carbon12_element
-        element_pos(:) = 0
-        element_pos(carbon12_element) = 1
-
-        call InitPRTGlobalAllometricCarbon()
-
-     case(prt_cnp_flex_allom_hyp)
-        
-        num_elements = 3
-        allocate(element_list(num_elements))
-        element_list(1) = carbon12_element
-        element_list(2) = nitrogen_element
-        element_list(3) = phosphorus_element
-        element_pos(:)  = 0
-        element_pos(carbon12_element)   = 1
-        element_pos(nitrogen_element)   = 2
-        element_pos(phosphorus_element) = 3
-
-        !call InitPRTGlobalAllometricCNP()
-        write(fates_log(),*) 'You specified the allometric CNP mode'
-        write(fates_log(),*) 'with relaxed target stoichiometry.'
-        write(fates_log(),*) 'I.e., namelist parametre fates_parteh_mode = 2'
-        write(fates_log(),*) 'This mode is not available yet. Please set it to 1.'
-        call endrun(msg=errMsg(sourcefile, __LINE__))
-        
-     case DEFAULT
-        write(fates_log(),*) 'You specified an unknown PRT module'
-        write(fates_log(),*) 'Check your setting for fates_parteh_mode'
-        write(fates_log(),*) 'in the CLM namelist. The only valid value now is 1'
-        write(fates_log(),*) 'Aborting'
-        call endrun(msg=errMsg(sourcefile, __LINE__))
-       
-    end select
-
-   end subroutine InitPARTEHGlobals
-
 
   ! ============================================================================
 
@@ -214,9 +125,16 @@ contains
     allocate(site_in%dz_soil(site_in%nlevsoil))
     allocate(site_in%z_soil(site_in%nlevsoil))
 
+    allocate(site_in%area_pft(1:numpft))
+    allocate(site_in%use_this_pft(1:numpft))
+
     do el=1,num_elements
         allocate(site_in%flux_diags(el)%leaf_litter_input(1:numpft))
         allocate(site_in%flux_diags(el)%root_litter_input(1:numpft))
+        allocate(site_in%flux_diags(el)%nutrient_efflux_scpf(nlevsclass*numpft))
+        allocate(site_in%flux_diags(el)%nutrient_uptake_scpf(nlevsclass*numpft))
+        allocate(site_in%flux_diags(el)%nutrient_needgrow_scpf(nlevsclass*numpft))
+        allocate(site_in%flux_diags(el)%nutrient_needmax_scpf(nlevsclass*numpft))
     end do
 
     ! Initialize the static soil 
@@ -226,7 +144,7 @@ contains
     site_in%zi_soil(:) = bc_in%zi_sisl(:)
     site_in%dz_soil(:) = bc_in%dz_sisl(:)
     site_in%z_soil(:)  = bc_in%z_sisl(:)
-
+    
 
     !
     end subroutine init_site_vars
@@ -308,10 +226,12 @@ contains
     ! canopy spread
     site_in%spread = 0._r8
 
+    site_in%area_pft(:) = 0._r8
+    site_in%use_this_pft(:) = fates_unset_int
   end subroutine zero_site
 
   ! ============================================================================
-  subroutine set_site_properties( nsites, sites )
+  subroutine set_site_properties( nsites, sites,bc_in )
     !
     ! !DESCRIPTION:
     !
@@ -321,7 +241,7 @@ contains
 
     integer, intent(in)                        :: nsites
     type(ed_site_type) , intent(inout), target :: sites(nsites)
-
+    type(bc_in_type), intent(in)               :: bc_in(nsites)
     !
     ! !LOCAL VARIABLES:
     integer  :: s
@@ -334,6 +254,7 @@ contains
     integer  :: cleafoff   ! DOY for cold-decid leaf-off, initial guess
     integer  :: dleafoff   ! DOY for drought-decid leaf-off, initial guess
     integer  :: dleafon    ! DOY for drought-decid leaf-on, initial guess
+    integer  :: ft         ! PFT loop
     !----------------------------------------------------------------------
 
 
@@ -376,7 +297,24 @@ contains
           sites(s)%acc_NI     = acc_NI
           sites(s)%NF         = 0.0_r8         
           sites(s)%frac_burnt = 0.0_r8
+         
+         ! PLACEHOLDER FOR PFT AREA DATA MOVED ACROSS INTERFACE                                                                                   
+          if(hlm_use_fixed_biogeog.eq.itrue)then
+            do ft =  1,numpft
+              sites(s)%area_pft(ft) = bc_in(s)%pft_areafrac(ft)
+            end do
+          end if
 
+          do ft = 1,numpft
+           sites(s)%use_this_pft(ft) = itrue
+           if(hlm_use_fixed_biogeog.eq.itrue)then
+             if(sites(s)%area_pft(ft).gt.0.0_r8)then
+                sites(s)%use_this_pft(ft) = itrue
+             else
+                sites(s)%use_this_pft(ft) = ifalse
+             end if !area
+           end if !SBG
+          end do !ft
           
        end do
 
@@ -556,7 +494,7 @@ contains
     patch_in%shortest => null()
     
     do pft =  1,numpft
-
+     if(site_in%use_this_pft(pft).eq.itrue)then
        if(EDPftvarcon_inst%initd(pft)>1.0E-7) then
 
        allocate(temp_cohort) ! temporary cohort
@@ -599,8 +537,9 @@ contains
        
        stem_drop_fraction = EDPftvarcon_inst%phen_stem_drop_fraction(temp_cohort%pft)
        
-       if( EDPftvarcon_inst%season_decid(pft) == itrue .and. &
+       if( prt_params%season_decid(pft) == itrue .and. &
             any(site_in%cstatus == [phen_cstat_nevercold,phen_cstat_iscold])) then
+          
          temp_cohort%laimemory = c_leaf
          temp_cohort%sapwmemory = c_sapw * stem_drop_fraction
          temp_cohort%structmemory = c_struct * stem_drop_fraction
@@ -610,7 +549,7 @@ contains
          cstatus = leaves_off
        endif
 
-       if ( EDPftvarcon_inst%stress_decid(pft) == itrue .and. &
+       if ( prt_params%stress_decid(pft) == itrue .and. &
             any(site_in%dstatus == [phen_dstat_timeoff,phen_dstat_moistoff])) then
           temp_cohort%laimemory = c_leaf
           temp_cohort%sapwmemory = c_sapw * stem_drop_fraction
@@ -651,26 +590,26 @@ contains
              
           case(nitrogen_element)
              
-             m_struct = c_struct*EDPftvarcon_inst%prt_nitr_stoich_p2(pft,struct_organ)
-             m_leaf   = c_leaf*EDPftvarcon_inst%prt_nitr_stoich_p2(pft,leaf_organ)
-             m_fnrt   = c_fnrt*EDPftvarcon_inst%prt_nitr_stoich_p2(pft,fnrt_organ)
-             m_sapw   = c_sapw*EDPftvarcon_inst%prt_nitr_stoich_p2(pft,sapw_organ)
-             m_store  = c_store*EDPftvarcon_inst%prt_nitr_stoich_p2(pft,store_organ)
+             m_struct = c_struct*prt_params%nitr_stoich_p2(pft,struct_organ)
+             m_leaf   = c_leaf*prt_params%nitr_stoich_p2(pft,leaf_organ)
+             m_fnrt   = c_fnrt*prt_params%nitr_stoich_p2(pft,fnrt_organ)
+             m_sapw   = c_sapw*prt_params%nitr_stoich_p2(pft,sapw_organ)
+             m_store  = c_store*prt_params%nitr_stoich_p2(pft,store_organ)
              m_repro  = 0._r8
              
           case(phosphorus_element)
 
-             m_struct = c_struct*EDPftvarcon_inst%prt_phos_stoich_p2(pft,struct_organ)
-             m_leaf   = c_leaf*EDPftvarcon_inst%prt_phos_stoich_p2(pft,leaf_organ)
-             m_fnrt   = c_fnrt*EDPftvarcon_inst%prt_phos_stoich_p2(pft,fnrt_organ)
-             m_sapw   = c_sapw*EDPftvarcon_inst%prt_phos_stoich_p2(pft,sapw_organ)
-             m_store  = c_store*EDPftvarcon_inst%prt_phos_stoich_p2(pft,store_organ)
+             m_struct = c_struct*prt_params%phos_stoich_p2(pft,struct_organ)
+             m_leaf   = c_leaf*prt_params%phos_stoich_p2(pft,leaf_organ)
+             m_fnrt   = c_fnrt*prt_params%phos_stoich_p2(pft,fnrt_organ)
+             m_sapw   = c_sapw*prt_params%phos_stoich_p2(pft,sapw_organ)
+             m_store  = c_store*prt_params%phos_stoich_p2(pft,store_organ)
              m_repro  = 0._r8
           end select
 
           select case(hlm_parteh_mode)
           case (prt_carbon_allom_hyp,prt_cnp_flex_allom_hyp )
-             
+
              ! Put all of the leaf mass into the first bin
              call SetState(prt_obj,leaf_organ, element_id,m_leaf,1)
              do iage = 2,nleafage
@@ -700,7 +639,7 @@ contains
        deallocate(temp_cohort) ! get rid of temporary cohort
 
        endif
-
+     endif !use_this_pft
     enddo !numpft
 
     ! Zero the mass flux pools of the new cohorts

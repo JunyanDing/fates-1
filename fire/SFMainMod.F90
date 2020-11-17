@@ -7,21 +7,25 @@
 
   use FatesConstantsMod     , only : r8 => fates_r8
   use FatesConstantsMod     , only : itrue, ifalse
-  use FatesInterfaceMod     , only : hlm_masterproc ! 1= master process, 0=not master process
+  use FatesInterfaceTypesMod     , only : hlm_masterproc ! 1= master process, 0=not master process
   use EDTypesMod            , only : numWaterMem
   use FatesGlobals          , only : fates_log
-
-  use FatesInterfaceMod     , only : bc_in_type
-
+  use FatesInterfaceTypesMod, only : hlm_spitfire_mode
+  use FatesInterfaceTypesMod, only : hlm_sf_nofire_def
+  use FatesInterfaceTypesMod, only : hlm_sf_scalar_lightning_def
+  use FatesInterfaceTypesMod, only : hlm_sf_successful_ignitions_def
+  use FatesInterfaceTypesMod, only : hlm_sf_anthro_ignitions_def
+  use FatesInterfaceTypesMod, only : bc_in_type
+  
   use EDPftvarcon           , only : EDPftvarcon_inst
-
-  use EDTypesMod            , only : element_pos
+  use PRTParametersMod      , only : prt_params
+  
+  use PRTGenericMod         , only : element_pos
   use EDtypesMod            , only : ed_site_type
   use EDtypesMod            , only : ed_patch_type
   use EDtypesMod            , only : ed_cohort_type
   use EDtypesMod            , only : AREA
   use EDtypesMod            , only : DL_SF
-  use EDtypesMod            , only : FIRE_THRESHOLD
   use EDTypesMod            , only : TW_SF
   use EDtypesMod            , only : LB_SF
   use EDtypesMod            , only : LG_SF
@@ -40,7 +44,7 @@
   use PRTGenericMod,          only : repro_organ
   use PRTGenericMod,          only : struct_organ
   use PRTGenericMod,          only : SetState
-  use FatesInterfaceMod     , only : numpft
+  use FatesInterfaceTypesMod     , only : numpft
 
   implicit none
   private
@@ -57,6 +61,9 @@
   public :: cambial_damage_kill
   public :: post_fire_mortality
 
+  ! The following parameter represents one of the values of hlm_spitfire_mode
+  ! and more of these appear in subroutine area_burnt_intensity below
+  ! NB. The same parameters are set in /src/biogeochem/CNFireFactoryMod
   integer :: write_SF = 0     ! for debugging
   logical :: debug = .false.  ! for debugging
 
@@ -70,7 +77,7 @@ contains
   ! ============================================================================
   subroutine fire_model( currentSite, bc_in)
 
-    use FatesInterfaceMod, only : hlm_use_spitfire
+    
 
     type(ed_site_type)     , intent(inout), target :: currentSite
     type(bc_in_type)       , intent(in)            :: bc_in
@@ -87,16 +94,16 @@ contains
     enddo
 
     if(write_SF==1)then
-       write(fates_log(),*) 'use_spitfire',hlm_use_spitfire
+       write(fates_log(),*) 'spitfire_mode', hlm_spitfire_mode
     endif
 
-    if( hlm_use_spitfire == itrue )then
+    if( hlm_spitfire_mode > hlm_sf_nofire_def )then
        call fire_danger_index(currentSite, bc_in)
        call wind_effect(currentSite, bc_in) 
        call charecteristics_of_fuel(currentSite)
        call rate_of_spread(currentSite)
        call ground_fuel_consumption(currentSite)
-       call area_burnt_intensity(currentSite)
+       call area_burnt_intensity(currentSite, bc_in)
        call crown_scorching(currentSite)
        call crown_damage(currentSite)
        call cambial_damage_kill(currentSite)
@@ -142,7 +149,7 @@ contains
        d_NI = 0.0_r8
        currentSite%acc_NI = 0.0_r8
     else 
-       yipsolon = (SF_val_fdi_a* temp_in_C)/(SF_val_fdi_b+ temp_in_C)+log(rh/100.0_r8) 
+       yipsolon = (SF_val_fdi_a* temp_in_C)/(SF_val_fdi_b+ temp_in_C)+log(max(1.0_r8,rh)/100.0_r8) 
        dewpoint = (SF_val_fdi_b*yipsolon)/(SF_val_fdi_a-yipsolon) !Standard met. formula
        d_NI = ( temp_in_C-dewpoint)* temp_in_C !follows Nesterov 1968.  Equation 5. Thonicke et al. 2010.
        if (d_NI < 0.0_r8) then !Change in NI cannot be negative. 
@@ -183,7 +190,7 @@ contains
        currentPatch%livegrass = 0.0_r8 
        currentCohort => currentPatch%tallest
        do while(associated(currentCohort))
-          if(EDPftvarcon_inst%woody(currentCohort%pft) == 0)then 
+          if( int(prt_params%woody(currentCohort%pft)) == ifalse)then 
              
              currentPatch%livegrass = currentPatch%livegrass + &
                   currentCohort%prt%GetState(leaf_organ, all_carbon_elements) * &
@@ -368,7 +375,7 @@ contains
  
        do while(associated(currentCohort))
           if (debug) write(fates_log(),*) 'SF currentCohort%c_area ',currentCohort%c_area
-          if(EDPftvarcon_inst%woody(currentCohort%pft) == 1)then
+          if( int(prt_params%woody(currentCohort%pft)) == itrue)then
              currentPatch%total_tree_area = currentPatch%total_tree_area + currentCohort%c_area
           else
              total_grass_area = total_grass_area + currentCohort%c_area
@@ -419,7 +426,7 @@ contains
                              SF_val_miner_damp,  &
                              SF_val_fuel_energy
     
-    use FatesInterfaceMod, only : hlm_current_day, hlm_current_month
+    use FatesInterfaceTypesMod, only : hlm_current_day, hlm_current_month
 
     type(ed_site_type), intent(in), target :: currentSite
 
@@ -651,7 +658,7 @@ contains
 
   
   !*****************************************************************
-  subroutine  area_burnt_intensity ( currentSite ) 
+  subroutine  area_burnt_intensity ( currentSite, bc_in )
   !*****************************************************************
 
     !returns the updated currentPatch%FI value for each patch.
@@ -662,15 +669,16 @@ contains
     !currentPatch%ROS_front  forward ROS (m/min) 
     !currentPatch%TFC_ROS total fuel consumed by flaming front (kgC/m2)
 
-    use FatesInterfaceMod, only : hlm_use_spitfire
+    use FatesInterfaceTypesMod, only : hlm_spitfire_mode
     use EDParamsMod,       only : ED_val_nignitions
     use EDParamsMod,       only : cg_strikes    ! fraction of cloud-to-ground ligtning strikes
     use FatesConstantsMod, only : years_per_day
     use SFParamsMod,       only : SF_val_fdi_alpha,SF_val_fuel_energy, &
-         SF_val_max_durat, SF_val_durat_slope
+         SF_val_max_durat, SF_val_durat_slope, SF_val_fire_threshold
     
     type(ed_site_type), intent(inout), target :: currentSite
     type(ed_patch_type), pointer :: currentPatch
+    type(bc_in_type), intent(in) :: bc_in
 
     real(r8) ROS !m/s
     real(r8) W   !kgBiomass/m2
@@ -680,6 +688,10 @@ contains
     real(r8) AB               !daily area burnt in m2 per km2
     
     real(r8) size_of_fire !in m2
+    real(r8) cloud_to_ground_strikes  ! [fraction] depends on hlm_spitfire_mode
+    real(r8) anthro_ign_count  ! anthropogenic ignition count/km2/day
+    integer :: iofp  ! index of oldest fates patch
+    real(r8), parameter :: pot_hmn_ign_counts_alpha = 0.0035_r8  ! Potential human ignition counts (alpha in Li et al. 2012) (#/person/month)
     real(r8),parameter :: km2_to_m2 = 1000000.0_r8 !area conversion for square km to square m
 
     !  ---initialize site parameters to zero--- 
@@ -688,14 +700,36 @@ contains
     
     ! Equation 7 from Venevsky et al GCB 2002 (modification of equation 8 in Thonicke et al. 2010) 
     ! FDI 0.1 = low, 0.3 moderate, 0.75 high, and 1 = extreme ignition potential for alpha 0.000337
-    currentSite%FDI  = 1.0_r8 - exp(-SF_val_fdi_alpha*currentSite%acc_NI)
+    if (hlm_spitfire_mode == hlm_sf_successful_ignitions_def) then
+       currentSite%FDI = 1.0_r8  ! READING "SUCCESSFUL IGNITION" DATA
+                                  ! force ignition potential to be extreme
+       cloud_to_ground_strikes = 1.0_r8   ! cloud_to_ground = 1 = use 100% incoming observed ignitions
+    else  ! USING LIGHTNING DATA
+       currentSite%FDI  = 1.0_r8 - exp(-SF_val_fdi_alpha*currentSite%acc_NI)
+       cloud_to_ground_strikes = cg_strikes
+    end if
     
     !NF = number of lighting strikes per day per km2 scaled by cloud to ground strikes
-    currentSite%NF = ED_val_nignitions * years_per_day * cg_strikes
+    iofp = currentSite%oldest_patch%patchno
+    if (hlm_spitfire_mode == hlm_sf_scalar_lightning_def ) then
+       currentSite%NF = ED_val_nignitions * years_per_day * cloud_to_ground_strikes
+    else    ! use external daily lightning ignition data
+       currentSite%NF = bc_in%lightning24(iofp) * cloud_to_ground_strikes
+    end if
 
     ! If there are 15  lightning strikes per year, per km2. (approx from NASA product for S.A.) 
     ! then there are 15 * 1/365 strikes/km2 each day 
  
+    ! Calculate anthropogenic ignitions according to Li et al. (2012)
+    ! Add to ignitions by lightning
+    if (hlm_spitfire_mode == hlm_sf_anthro_ignitions_def) then
+      ! anthropogenic ignitions (count/km2/day)
+      !           =  ignitions/person/month * 6.8 * population_density **0.43 /approximate days per month
+      anthro_ign_count = pot_hmn_ign_counts_alpha * 6.8_r8 * bc_in%pop_density(iofp)**0.43_r8 / 30._r8
+                           
+       currentSite%NF = currentSite%NF + anthro_ign_count
+
+    end if
 
     currentPatch => currentSite%oldest_patch;  
     do while(associated(currentPatch))
@@ -774,7 +808,7 @@ contains
          endif
 
          !'decide_fire' subroutine 
-         if (currentPatch%FI > fire_threshold) then !track fires greater than kW/m2 energy threshold
+         if (currentPatch%FI > SF_val_fire_threshold) then !track fires greater than kW/m energy threshold
             currentPatch%fire = 1 ! Fire...    :D
           
          else     
@@ -824,26 +858,25 @@ contains
        if (currentPatch%fire == 1) then
           currentCohort => currentPatch%tallest;
           do while(associated(currentCohort))  
-             if (EDPftvarcon_inst%woody(currentCohort%pft) == 1) then !trees only
-                
+             if ( int(prt_params%woody(currentCohort%pft)) == itrue) then !trees only
+
                 leaf_c = currentCohort%prt%GetState(leaf_organ, all_carbon_elements)
                 sapw_c = currentCohort%prt%GetState(sapw_organ, all_carbon_elements)
                 struct_c = currentCohort%prt%GetState(struct_organ, all_carbon_elements)
                 
                 tree_ag_biomass = tree_ag_biomass + &
-                     currentCohort%n * (leaf_c + & 
-                     EDPftvarcon_inst%allom_agb_frac(currentCohort%pft)*(sapw_c + struct_c))
- 
+                      currentCohort%n * (leaf_c + & 
+                      prt_params%allom_agb_frac(currentCohort%pft)*(sapw_c + struct_c))
              endif !trees only
              currentCohort=>currentCohort%shorter;
           enddo !end cohort loop
 
           do i_pft=1,numpft
-             if (tree_ag_biomass > 0.0_r8  .and. EDPftvarcon_inst%woody(i_pft) == 1) then 
+             if (tree_ag_biomass > 0.0_r8  .and. int(prt_params%woody(i_pft)) == itrue) then 
                 
                 !Equation 16 in Thonicke et al. 2010 !Van Wagner 1973 EQ8 !2/3 Byram (1959)
                 currentPatch%Scorch_ht(i_pft) = EDPftvarcon_inst%fire_alpha_SH(i_pft) * (currentPatch%FI**0.667_r8)
-                
+
                 if(write_SF == itrue)then
                    if ( hlm_masterproc == itrue ) write(fates_log(),*) 'currentPatch%SH',currentPatch%Scorch_ht(i_pft)
                 endif
@@ -880,7 +913,7 @@ contains
 
           do while(associated(currentCohort))  
              currentCohort%fraction_crown_burned = 0.0_r8
-             if (EDPftvarcon_inst%woody(currentCohort%pft) == 1) then !trees only
+             if ( int(prt_params%woody(currentCohort%pft)) == itrue) then !trees only
                 ! Flames lower than bottom of canopy. 
                 ! c%hite is height of cohort
                 if (currentPatch%Scorch_ht(currentCohort%pft) < &
@@ -943,7 +976,7 @@ contains
        if (currentPatch%fire == 1) then
           currentCohort => currentPatch%tallest;
           do while(associated(currentCohort))  
-             if (EDPftvarcon_inst%woody(currentCohort%pft) == 1) then !trees only
+             if ( int(prt_params%woody(currentCohort%pft)) == itrue) then !trees only
                 ! Equation 21 in Thonicke et al 2010
                 bt = EDPftvarcon_inst%bark_scaler(currentCohort%pft)*currentCohort%dbh ! bark thickness. 
                 ! Equation 20 in Thonicke et al. 2010. 
@@ -995,7 +1028,7 @@ contains
           do while(associated(currentCohort))  
              currentCohort%fire_mort = 0.0_r8
              currentCohort%crownfire_mort = 0.0_r8
-             if (EDPftvarcon_inst%woody(currentCohort%pft) == 1) then
+             if ( int(prt_params%woody(currentCohort%pft)) == itrue) then
                 ! Equation 22 in Thonicke et al. 2010. 
                 currentCohort%crownfire_mort = EDPftvarcon_inst%crown_kill(currentCohort%pft)*currentCohort%fraction_crown_burned**3.0_r8
                 ! Equation 18 in Thonicke et al. 2010. 
