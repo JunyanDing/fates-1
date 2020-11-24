@@ -693,10 +693,11 @@ contains
     integer :: iofp  ! index of oldest fates patch
     real(r8), parameter :: pot_hmn_ign_counts_alpha = 0.0035_r8  ! Potential human ignition counts (alpha in Li et al. 2012) (#/person/month)
     real(r8),parameter :: km2_to_m2 = 1000000.0_r8 !area conversion for square km to square m
-
+    
+    real(r8), Area_site        ! the total area of the site
     !  ---initialize site parameters to zero--- 
     currentSite%frac_burnt = 0.0_r8  
-
+    Area_site = 0.0_r8
     
     ! Equation 7 from Venevsky et al GCB 2002 (modification of equation 8 in Thonicke et al. 2010) 
     ! FDI 0.1 = low, 0.3 moderate, 0.75 high, and 1 = extreme ignition potential for alpha 0.000337
@@ -737,7 +738,7 @@ contains
        currentPatch%fire       = 0
        currentPatch%FD         = 0.0_r8
        currentPatch%frac_burnt = 0.0_r8
-       
+       Area_site = Area_site + currentPatch%area
 
        if (currentSite%NF > 0.0_r8) then
           
@@ -785,10 +786,10 @@ contains
 
              !AB = daily area burnt = size fires in m2 * num ignitions per day per km2 * prob ignition starts fire
              !AB = m2 per km2 per day
-             AB = size_of_fire * currentSite%NF * currentSite%FDI
+             AB = (size_of_fire/km2_to_m2) * currentSite%NF * currentSite%FDI * currentPatch%area
 
-             !frac_burnt 
-             currentPatch%frac_burnt = (min(0.99_r8, AB / km2_to_m2)) * currentPatch%area/area 
+             !frac_burnt of the patch
+             currentPatch%frac_burnt = min(0.99_r8, AB/currentPatch%area) 
              
              if(write_SF == itrue)then
                 if ( hlm_masterproc == itrue ) write(fates_log(),*) 'frac_burnt',currentPatch%frac_burnt
@@ -821,7 +822,7 @@ contains
 
        
        ! accumulate frac_burnt % at site level
-       currentSite%frac_burnt = currentSite%frac_burnt + currentPatch%frac_burnt    
+       currentSite%frac_burnt = currentSite%frac_burnt + currentPatch%frac_burnt * (currentPatch%area/Area_site)   
 
        currentPatch => currentPatch%younger
 
