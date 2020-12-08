@@ -1139,14 +1139,37 @@ contains
                  
                  leaf_co2_ppress = can_co2_ppress- 1.4_r8/gb_mol * agross * can_press 
                  leaf_co2_ppress = max(leaf_co2_ppress,1.e-06_r8)
-                 aquad = leaf_co2_ppress
-                 bquad = leaf_co2_ppress*(gb_mol - bbb) - bb_slope(ft) * agross * can_press
-                 cquad = -gb_mol*(leaf_co2_ppress*bbb + &
+
+                 if ( stomatal_model == 2 ) then
+                  !stomatal conductance calculated from Medlyn et al. (2011), the numerical &
+                  !implementation was adapted from the equations in CLM5.0 
+                  vpd =  max((veg_esat - ceair), 50._r8) * 0.001_r8          !addapted from CLM5. Put some constraint on VPD
+                  !when Medlyn stomatal conductance is being used, the unit is KPa. Ignoring the constraint will cause errors when model runs.          
+                  term = h2o_co2_stoma_diffuse_ratio * anet / (leaf_co2_ppress / can_press)
+                  aquad = 1.0_r8
+                  bquad = -(2.0 * (stomatal_intercept_btran+ term) + (medlyn_slope(ft) * term)**2 / &
+                          (gb_mol * vpd ))
+                  cquad = stomatal_intercept_btran*stomatal_intercept_btran + &
+                          (2.0*stomatal_intercept_btran + term * &
+                          (1.0 - medlyn_slope(ft)* medlyn_slope(ft) / vpd)) * term
+
+                  call quadratic_f (aquad, bquad, cquad, r1, r2)
+                  gs_mol = max(r1,r2)
+
+               else if ( stomatal_model == 1 ) then         !stomatal conductance calculated from Ball et al. (1987)
+                    aquad = leaf_co2_ppress
+                    bquad = leaf_co2_ppress*(gb_mol - stomatal_intercept_btran) - bb_slope(ft) * anet * can_press
+                    cquad = -gb_mol*(leaf_co2_ppress*stomatal_intercept_btran + &
+                                  bb_slope(ft)*anet*can_press * ceair/ veg_esat )
+
+                    aquad = leaf_co2_ppress
+                    bquad = leaf_co2_ppress*(gb_mol - bbb) - bb_slope(ft) * agross * can_press
+                    cquad = -gb_mol*(leaf_co2_ppress*bbb + &
                                   bb_slope(ft)*agross*can_press * ceair/ veg_esat )
 
-                 call quadratic_f (aquad, bquad, cquad, r1, r2)
-                 gs_mol = max(r1,r2)
-                 end if 
+                    call quadratic_f (aquad, bquad, cquad, r1, r2)
+                    gs_mol = max(r1,r2)
+                end if 
                  ! Derive new estimate for co2_inter_c
                  co2_inter_c = can_co2_ppress - agross * can_press * &
                        (1.4_r8*gs_mol+1.6_r8*gb_mol) / (gb_mol*gs_mol)
