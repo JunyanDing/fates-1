@@ -1497,7 +1497,6 @@ contains
         write(fates_log(),fmt0) 'phen_cold_size_threshold = ',EDPftvarcon_inst%phen_cold_size_threshold
         write(fates_log(),fmt0) 'phen_stem_drop_fraction',EDpftvarcon_inst%phen_stem_drop_fraction
         write(fates_log(),fmt0) 'fire_alpha_SH = ',EDPftvarcon_inst%fire_alpha_SH
-<<<<<<< HEAD
         write(fates_log(),fmt0) 'allom_hmode = ',EDPftvarcon_inst%allom_hmode
         write(fates_log(),fmt0) 'allom_lmode = ',EDPftvarcon_inst%allom_lmode
         write(fates_log(),fmt0) 'allom_fmode = ',EDPftvarcon_inst%allom_fmode
@@ -1523,9 +1522,7 @@ contains
         write(fates_log(),fmt0) 'allom_agb3 = ',EDPftvarcon_inst%allom_agb3
         write(fates_log(),fmt0) 'allom_agb4 = ',EDPftvarcon_inst%allom_agb4
 	   write(fates_log(),fmt0) 'allom_frbstor_repro = ',EDPftvarcon_inst%allom_frbstor_repro
-=======
 	write(fates_log(),fmt0) 'allom_frbstor_repro = ',EDPftvarcon_inst%allom_frbstor_repro
->>>>>>> remotes/fates_github/Hydro_JD_Nov16
         write(fates_log(),fmt0) 'hydr_p_taper = ',EDPftvarcon_inst%hydr_p_taper
         write(fates_log(),fmt0) 'hydr_rs2 = ',EDPftvarcon_inst%hydr_rs2
         write(fates_log(),fmt0) 'hydr_srl = ',EDPftvarcon_inst%hydr_srl
