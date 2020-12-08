@@ -833,7 +833,6 @@ contains
     call fates_params%RetreiveParameterAllocate(name=name, &
          data=this%mort_ip_age_senescence)
 
-<<<<<<< HEAD
     name = 'fates_allom_d2bl1'
     call fates_params%RetreiveParameterAllocate(name=name, &
          data=this%allom_d2bl1)
@@ -938,8 +937,6 @@ contains
     call fates_params%RetreiveParameterAllocate(name=name, &
          data=this%mort_ip_age_senescence)
 
-=======
->>>>>>> remotes/fates_github/Hydro_JD_Nov16
     name = 'fates_mort_r_age_senescence'
     call fates_params%RetreiveParameterAllocate(name=name, &
          data=this%mort_r_age_senescence)
