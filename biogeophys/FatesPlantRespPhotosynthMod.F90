@@ -1158,14 +1158,10 @@ contains
 
                else if ( stomatal_model == 1 ) then         !stomatal conductance calculated from Ball et al. (1987)
                     aquad = leaf_co2_ppress
-                    bquad = leaf_co2_ppress*(gb_mol - stomatal_intercept_btran) - bb_slope(ft) * anet * can_press
+                    bquad = leaf_co2_ppress*(gb_mol - stomatal_intercept_btran) - bb_slope(ft) * agross * can_press
                     cquad = -gb_mol*(leaf_co2_ppress*stomatal_intercept_btran + &
-                                  bb_slope(ft)*anet*can_press * ceair/ veg_esat )
-
-                    aquad = leaf_co2_ppress
-                    bquad = leaf_co2_ppress*(gb_mol - bbb) - bb_slope(ft) * agross * can_press
-                    cquad = -gb_mol*(leaf_co2_ppress*bbb + &
                                   bb_slope(ft)*agross*can_press * ceair/ veg_esat )
+
 
                     call quadratic_f (aquad, bquad, cquad, r1, r2)
                     gs_mol = max(r1,r2)
