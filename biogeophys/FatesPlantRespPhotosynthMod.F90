@@ -964,7 +964,11 @@ contains
    real(r8) :: rb                ! leaf boundary layer ressistance  
    ! Parameters
    ! ------------------------------------------------------------------------
+   ! selection to use agross or anet in stomatal models, 1 - use agross, other values - use anet
+   integer,parameter :: use_agross = 1      
+
    ! Fraction of light absorbed by non-photosynthetic pigments
+  
    real(r8),parameter :: fnps = 0.15_r8       
 
 
@@ -1129,10 +1133,12 @@ contains
                 !!! Junyan replace anet in the belowing code to agross for gs calculation
                 !!! this is version B  
                  anet = agross - lmr
-                 ! if (anet < 0._r8) then
-                  !  loop_continue = .false.
-                 ! end if
-
+                 if (use_agross == 1) then
+                 else
+                   if (anet < 0._r8) then
+                     loop_continue = .false.
+                   end if
+                 end if 
 
                  ! Quadratic gs_mol calculation with an known. Valid for an >= 0.
                  ! With an <= 0, then gs_mol = bbb
@@ -1157,22 +1163,28 @@ contains
                   gs_mol = max(r1,r2)
 
                else if ( stomatal_model == 1 ) then         !stomatal conductance calculated from Ball et al. (1987)
+                  if (use_agross == 1) then
                     aquad = leaf_co2_ppress
-                    bquad = leaf_co2_ppress*(gb_mol - stomatal_intercept_btran) - bb_slope(ft) * anet * can_press
+                    bquad = leaf_co2_ppress*(gb_mol - stomatal_intercept_btran) - bb_slope(ft) * agross * can_press
                     cquad = -gb_mol*(leaf_co2_ppress*stomatal_intercept_btran + &
-                                  bb_slope(ft)*anet*can_press * ceair/ veg_esat )
-
-                    aquad = leaf_co2_ppress
-                    bquad = leaf_co2_ppress*(gb_mol - bbb) - bb_slope(ft) * agross * can_press
-                    cquad = -gb_mol*(leaf_co2_ppress*bbb + &
                                   bb_slope(ft)*agross*can_press * ceair/ veg_esat )
-
+                  else
+                    aquad = leaf_co2_ppress
+                    bquad = leaf_co2_ppress*(gb_mol - bbb) - bb_slope(ft) * anet * can_press
+                    cquad = -gb_mol*(leaf_co2_ppress*bbb + &
+                                  bb_slope(ft)*anet*can_press * ceair/ veg_esat )
+                  end if   
                     call quadratic_f (aquad, bquad, cquad, r1, r2)
                     gs_mol = max(r1,r2)
                 end if 
                  ! Derive new estimate for co2_inter_c
+               if (use_agross == 1) then  
                  co2_inter_c = can_co2_ppress - agross * can_press * &
-                       (1.4_r8*gs_mol+1.6_r8*gb_mol) / (gb_mol*gs_mol)
+                       (h2o_co2_bl_diffuse_ratio*gs_mol+h2o_co2_stoma_diffuse_ratio*gb_mol) / (gb_mol*gs_mol)
+               else
+                 co2_inter_c = can_co2_ppress - anet * can_press * &
+                       (h2o_co2_bl_diffuse_ratio*gs_mol+h2o_co2_stoma_diffuse_ratio*gb_mol) / (gb_mol*gs_mol)
+               end if
                 ! end of Junyan's change for gs calculation
 
 
