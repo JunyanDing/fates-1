@@ -1781,7 +1781,7 @@ contains
       
       real(r8), parameter :: mm_kc25_umol_per_mol       = 404.9_r8
       real(r8), parameter :: mm_ko25_mmol_per_mol       = 278.4_r8
-      real(r8), parameter :: co2_cpoint_umol_per_mol    = 85.75_r8  !Junyan changed 42.75_r8 to 85
+      real(r8), parameter :: co2_cpoint_umol_per_mol    = 42.75_r8  
       
       ! Activation energy, from:
       ! Bernacchi et al (2001) Plant, Cell and Environment 24:253-259

@@ -582,15 +582,7 @@ contains
        call endrun(msg=errMsg(sourcefile, __LINE__))
     end if
  
-
-    ! Junyan added for debugging
-       write(fates_log(),*) 'Report Initialized plant compartments'      
-       write(fates_log(),*) 'th ag(:): ',cohort_hydr%th_ag(:)
-       write(fates_log(),*) 'psi ag(:): ',cohort_hydr%psi_ag(:)
-       write(fates_log(),*) 'psi_aroot(:): ',cohort_hydr%psi_aroot(:)
-       write(fates_log(),*) 'End of report'
-    ! end of Junyan addition
-    
+ 
 
   end subroutine InitPlantHydStates
   
@@ -618,33 +610,27 @@ contains
     
     ! Update Psi and FTC in above-ground compartments
     ! -----------------------------------------------------------------------------------
-    ! Junyan added fate log for debugging
+
     do k = 1,n_hypool_leaf
         ccohort_hydr%psi_ag(k) = wrf_plant(leaf_p_media,ft)%p%psi_from_th(ccohort_hydr%th_ag(k)) 
         ccohort_hydr%ftc_ag(k) = wkf_plant(leaf_p_media,ft)%p%ftc_from_psi(ccohort_hydr%psi_ag(k))
-      ! write(fates_log(),*) 'leaf: ', 'th: ',  ccohort_hydr%th_ag(k)  
-      ! write(fates_log(),*)  'ftc_from_psi  psi: ', ccohort_hydr%psi_ag(k), 'ftc: ' ,ccohort_hydr%ftc_ag(k)         
+
     end do
 
     do k = n_hypool_leaf+1, n_hypool_ag 
        ccohort_hydr%psi_ag(k) = wrf_plant(stem_p_media,ft)%p%psi_from_th(ccohort_hydr%th_ag(k))
        ccohort_hydr%ftc_ag(k) = wkf_plant(stem_p_media,ft)%p%ftc_from_psi(ccohort_hydr%psi_ag(k))
-      ! write(fates_log(),*) 'node id: ',k, 'th: ',  ccohort_hydr%th_ag(k)    
-      ! write(fates_log(),*)  'ftc_from_psi   psi: ', ccohort_hydr%psi_ag(k), 'ftc: ' ,ccohort_hydr%ftc_ag(k)        
+
     end do
 
     ! Update the Psi and FTC for the transporting root compartment
     ccohort_hydr%psi_troot = wrf_plant(troot_p_media,ft)%p%psi_from_th(ccohort_hydr%th_troot)
     ccohort_hydr%ftc_troot = wkf_plant(troot_p_media,ft)%p%ftc_from_psi(ccohort_hydr%psi_troot)
-    !write(fates_log(),*) 'transport root, th: ',  ccohort_hydr%th_troot  
-    !write(fates_log(),*)  '        psi: ', ccohort_hydr%psi_troot, 'ftc: ' ,ccohort_hydr%ftc_troot      
 
     ! Update the Psi and FTC for the absorbing roots
     do j = 1, csite_hydr%nlevrhiz
        ccohort_hydr%psi_aroot(j) = wrf_plant(aroot_p_media,ft)%p%psi_from_th(ccohort_hydr%th_aroot(j)) 
        ccohort_hydr%ftc_aroot(j) = wkf_plant(aroot_p_media,ft)%p%ftc_from_psi(ccohort_hydr%psi_aroot(j))
-     ! write(fates_log(),*) 'absorbing root layer: ',j, 'th: ',  ccohort_hydr%th_aroot(j)
-     ! write(fates_log(),*)  '         psi: ', ccohort_hydr%psi_aroot(j), 'ftc: ' ,ccohort_hydr%ftc_aroot(j)            
 
     end do
 
@@ -3622,15 +3608,7 @@ contains
             iter=iter+1
             
         end do
-           ! Junyan added for debugging
-           ! write(fates_log(),*) 'th leaf: ',cohort_hydr%th_ag(1)
-           ! write(fates_log(),*) 'th stem: ',cohort_hydr%th_ag(2)
-           ! write(fates_log(),*) 'LWP: ',cohort_hydr%psi_ag(1)
-           ! write(fates_log(),*) 'dbh: ',cohort%dbh
-           ! write(fates_log(),*) 'pft: ',cohort%pft
-           ! write(fates_log(),*) 'tree lai: ',cohort%treelai,' m2/m2 crown'
-           ! write(fates_log(),*) 'lat:', slat, 'lon:', slon
-          ! end of Junyan debugging
+
         ! -----------------------------------------------------------
         ! Do a final check on water balance error sumed over sub-steps
         ! ------------------------------------------------------------
