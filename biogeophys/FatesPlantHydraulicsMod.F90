@@ -931,7 +931,8 @@ contains
     ! The transporting root donates some of its volume
     ! to the layer-by-layer absorbing root (which is now a hybrid compartment)
     ! ------------------------------------------------------------------------------
-    ccohort_hydr%v_troot = (1._r8-t2aroot_vol_donate_frac) * v_troot
+    ! ccohort_hydr%v_troot = (1._r8-t2aroot_vol_donate_frac) * v_troot
+    ccohort_hydr%v_troot = ( v_troot + v_aroot_tot) / 2
     
     ! Partition the total absorbing root lengths and volumes into the active soil layers
     ! We have a condition, where we may ignore the first layer
@@ -948,7 +949,7 @@ contains
         ccohort_hydr%l_aroot_layer(j) = rootfr*l_aroot_tot
         
         ! This is a hybrid absorbing root and transporting root volume
-        ccohort_hydr%v_aroot_layer(j) = rootfr*(v_aroot_tot + t2aroot_vol_donate_frac*v_troot)
+        ccohort_hydr%v_aroot_layer(j) = rootfr*((v_aroot_tot + v_troot)/2)
 
     end do
        
