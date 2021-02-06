@@ -649,9 +649,9 @@ contains
           dftcdpsi = 0._r8   ! We cap ftc, so derivative is zero
        else
 
-          !Å Old modification, incorrect, missed m in the formula
-          !Å t1  = (this%alpha*psi_eff)**n
-          !Å dt1 = this%alpha*(n)*(this%alpha*psi_eff)**(n-1._r8)
+          !Old modification, incorrect, missed m in the formula
+          !t1  = (this%alpha*psi_eff)**n
+          !dt1 = this%alpha*(n)*(this%alpha*psi_eff)**(n-1._r8)
           
           ! Corrected on Jan 06, 2021
           t1  = (this%alpha*psi_eff)**(n*m)
