@@ -1156,7 +1156,11 @@ contains
                   !implementation was adapted from the equations in CLM5.0 
                   vpd =  max((veg_esat - ceair), 50._r8) * 0.001_r8          !addapted from CLM5. Put some constraint on VPD
                   !when Medlyn stomatal conductance is being used, the unit is KPa. Ignoring the constraint will cause errors when model runs.          
-                  term = h2o_co2_stoma_diffuse_ratio * anet / (leaf_co2_ppress / can_press)
+                  if (use_agross == 1) then
+                     term = h2o_co2_stoma_diffuse_ratio * agross / (leaf_co2_ppress / can_press)
+		  else
+	             term = h2o_co2_stoma_diffuse_ratio * anet / (leaf_co2_ppress / can_press)	  
+		  end if
                   aquad = 1.0_r8
                   bquad = -(2.0 * (stomatal_intercept_btran+ term) + (medlyn_slope(ft) * term)**2 / &
                           (gb_mol * vpd ))
