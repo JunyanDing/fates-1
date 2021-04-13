@@ -171,7 +171,8 @@ module EDTypesMod
                                                                           ! if the fusion area is less than min_patch_area_forced
 
   real(r8), parameter, public :: min_nppatch    = min_npm2*min_patch_area ! minimum number of cohorts per patch (min_npm2*min_patch_area)
-  real(r8), parameter, public :: min_n_safemath = 1.0E-12_r8              ! in some cases, we want to immediately remove super small
+  ! Junyan changed the min_n_safemath below , original is 1.0E-12_r8
+  real(r8), parameter, public :: min_n_safemath = 1.0E-9_r8               ! in some cases, we want to immediately remove super small, 
                                                                           ! number densities of cohorts to prevent FPEs
 
   character*4 yearchar                    
@@ -534,9 +535,9 @@ module EDTypesMod
      real(r8) ::  sum_fuel                                         ! total ground fuel related to ros (omits 1000hr fuels): KgC/m2
      real(r8) ::  fuel_frac(nfsc)                                  ! fraction of each litter class in the ros_fuel:-.  
      real(r8) ::  livegrass                                        ! total aboveground grass biomass in patch.  KgC/m2
-     real(r8) ::  fuel_bulkd                                       ! average fuel bulk density of the ground fuel 
+     real(r8) ::  fuel_bulkd                                       ! average fuel bulk density of the ground fuel. kgBiomass/m3
                                                                    ! (incl. live grasses. omits 1000hr fuels). KgC/m3
-     real(r8) ::  fuel_sav                                         ! average surface area to volume ratio of the ground fuel 
+     real(r8) ::  fuel_sav                                         ! average surface area to volume ratio of the ground fuel. cm-1
                                                                    ! (incl. live grasses. omits 1000hr fuels).
      real(r8) ::  fuel_mef                                         ! average moisture of extinction factor 
                                                                    ! of the ground fuel (incl. live grasses. omits 1000hr fuels).
@@ -555,9 +556,9 @@ module EDTypesMod
 
      ! FIRE EFFECTS     
      real(r8) ::  scorch_ht(maxpft)                                ! scorch height: m 
-     real(r8) ::  frac_burnt                                       ! fraction burnt: frac gridcell/day  
-     real(r8) ::  tfc_ros                                          ! total fuel consumed - no trunks.  KgC/m2/day
-     real(r8) ::  burnt_frac_litter(nfsc)                          ! fraction of each litter pool burned:-
+     real(r8) ::  frac_burnt                                       ! fraction burnt: frac patch/day  
+     real(r8) ::  tfc_ros                                          ! total intensity-relevant fuel consumed - no trunks.  KgC/m2 of burned ground/day
+     real(r8) ::  burnt_frac_litter(nfsc)                          ! fraction of each litter pool burned, conditional on it being burned
 
 
      ! PLANT HYDRAULICS   (not currently used in hydraulics RGK 03-2018)  
@@ -730,7 +731,7 @@ module EDTypesMod
      real(r8) ::  acc_ni                                       ! daily nesterov index accumulating over time.
      real(r8) ::  fdi                                          ! daily probability an ignition event will start a fire
      real(r8) ::  NF                                           ! daily ignitions in km2
-     real(r8) ::  frac_burnt                                   ! fraction of area burnt in this day.
+     real(r8) ::  NF_successful                                ! daily ignitions in km2 that actually lead to fire
 
      ! PLANT HYDRAULICS
      type(ed_site_hydr_type), pointer :: si_hydr
