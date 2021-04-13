@@ -198,6 +198,7 @@ module EDPftvarcon
      real(r8), allocatable :: hydr_rfrac_stem(:)    ! fraction of total tree resistance from troot to canopy
      real(r8), allocatable :: hydr_avuln_gs(:)      ! shape parameter for stomatal control of water vapor exiting leaf 
      real(r8), allocatable :: hydr_p50_gs(:)        ! water potential at 50% loss of stomatal conductance
+     real(r8), allocatable :: hydr_k_lwp(:)         ! inner leaf humidity scaling coefficient 
 
      !  PFT specific parameters for hydro dynamic roots 
      real(r8), allocatable :: allom_dbh_max(:)  
@@ -862,6 +863,9 @@ contains
     name = 'fates_hydr_n_vg'
     call fates_params%RetreiveParameterAllocate(name=name, &
           data=this%hydr_n_vg)
+    name = 'fates_hydr_k_lwp'
+    call fates_params%RetreiveParameterAllocate(name=name, &
+          data=this%hydr_k_lwp)
 
     name = 'fates_hydr_avuln_gs'
     call fates_params%RetreiveParameterAllocate(name=name, &
@@ -1467,6 +1471,8 @@ contains
         write(fates_log(),fmt0) 'hydr_alpha_vg = ',EDPftvarcon_inst%hydr_alpha_vg
         write(fates_log(),fmt0) 'hydr_m_vg = ',EDPftvarcon_inst%hydr_m_vg
         write(fates_log(),fmt0) 'hydr_n_vg = ',EDPftvarcon_inst%hydr_n_vg        
+        write(fates_log(),fmt0) 'hydr_avuln_gs = ',EDPftvarcon_inst%hydr_avuln_gs
+        write(fates_log(),fmt0) 'hydr_k_lwp = ',EDPftvarcon_inst%hydr_k_lwp
         write(fates_log(),fmt0) 'hydr_p50_gs = ',EDPftvarcon_inst%hydr_p50_gs
         write(fates_log(),fmt0) 'hydr_avuln_node = ',EDPftvarcon_inst%hydr_avuln_node
         write(fates_log(),fmt0) 'hydr_p50_node = ',EDPftvarcon_inst%hydr_p50_node
