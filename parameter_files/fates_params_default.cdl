@@ -211,7 +211,6 @@ variables:
 	double fates_grperc(fates_pft) ;
 		fates_grperc:units = "unitless" ;
 		fates_grperc:long_name = "Growth respiration factor" ;
-<<<<<<< HEAD
 	double fates_hydr_alpha_vg(fates_pft) ;
 		fates_hydr_alpha_vg:units = "MPa-1" ;
 		fates_hydr_alpha_vg:long_name = "capalary length parameter in van Genuchten model" ;
@@ -221,8 +220,6 @@ variables:
 	double fates_hydr_n_vg(fates_pft) ;
 		fates_hydr_n_vg:units = "unitless" ;
 		fates_hydr_n_vg:long_name = "n in van Genuchten 1980 model, pore size distribution parameter" ;
-=======
->>>>>>> JD_gs_NGmaster
 	double fates_hydr_k_lwp(fates_pft) ;
 		fates_hydr_k_lwp:units = "unitless" ;
 		fates_hydr_k_lwp:long_name = "inner leaf humidity scale coefficient, between 1 to 10, set to 0 to disable this function" ;
@@ -907,15 +904,12 @@ data:
 
  fates_hydr_k_lwp = 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ;
 
-<<<<<<< HEAD
  fates_hydr_alpha_vg = 0.0005, 0.0005, 0.0005, 0.0005, 0.0005, 0.005, 0.005, 0.005, 0.005, 0.005, 0.005, 0.005;
 
  fates_hydr_m_vg = 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5;
 
  fates_hydr_n_vg = 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2;
 
-=======
->>>>>>> JD_gs_NGmaster
  fates_hydr_avuln_node =
   2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
   2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,

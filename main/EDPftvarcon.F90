@@ -211,7 +211,6 @@ module EDPftvarcon
      real(r8), allocatable :: hydr_alpha_vg(:)      ! capilary length parameter in van Genuchten model 
      real(r8), allocatable :: hydr_m_vg(:)          ! pore size distribution, m in van Genuchten 1980 model range (0,1)
      real(r8), allocatable :: hydr_n_vg(:)          ! pore size distribution, n in van Genuchten 1980 model range >2
-     real(r8), allocatable :: hydr_k_lwp(:)         ! inner leaf humidity scaling coefficient 
 
      ! PFT x Organ Dimension  (organs are: 1=leaf, 2=stem, 3=transporting root, 4=absorbing root)
      real(r8), allocatable :: hydr_avuln_node(:,:)  ! xylem vulernability curve shape parameter 
@@ -863,7 +862,7 @@ contains
     name = 'fates_hydr_n_vg'
     call fates_params%RetreiveParameterAllocate(name=name, &
           data=this%hydr_n_vg)
-    name = 'fates_hydr_k_lwp'
+
     call fates_params%RetreiveParameterAllocate(name=name, &
           data=this%hydr_k_lwp)
 
