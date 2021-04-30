@@ -52,9 +52,9 @@ module EDPhysiologyMod
   use PRTGenericMod       , only : element_list
   use PRTGenericMod       , only : element_pos
   use EDTypesMod          , only : site_fluxdiags_type
-  use EDTypesMod          , only : phen_cstat_nevercold
-  use EDTypesMod          , only : phen_cstat_iscold
-  use EDTypesMod          , only : phen_cstat_notcold
+  use EDTypesMod          , only : phen_cstat_nevercold  ! leaf off status (forced) 
+  use EDTypesMod          , only : phen_cstat_iscold     ! leaf off status
+  use EDTypesMod          , only : phen_cstat_notcold    ! leaf on status
   use EDTypesMod          , only : phen_dstat_timeoff
   use EDTypesMod          , only : phen_dstat_moistoff
   use EDTypesMod          , only : phen_dstat_moiston
@@ -812,7 +812,7 @@ contains
     !
     ! accumulate the GDD using daily mean temperatures
     ! Don't accumulate GDD during the growing season (that wouldn't make sense)
-    if (temp_in_C .gt. 0._r8 .and. currentSite%cstatus == phen_cstat_iscold) then
+    if (temp_in_C .gt. 0._r8 .and. hlm_day_of_year .gt. gddstart) then
        currentSite%grow_deg_days = currentSite%grow_deg_days + temp_in_C
     endif
     
@@ -865,7 +865,7 @@ contains
     if ( (currentSite%cstatus == phen_cstat_iscold .or. &
           currentSite%cstatus == phen_cstat_nevercold) .and. &
          (currentSite%grow_deg_days > gdd_threshold) .and. &
-         (dayssincecleafoff > ED_val_phen_mindayson) .and. &
+       !  (dayssincecleafoff > ED_val_phen_mindayson) .and. &  
          (currentSite%nchilldays >= 1)) then
        currentSite%cstatus = phen_cstat_notcold  ! Set to not-cold status (leaves can come on)
        currentSite%cleafondate = model_day_int  
@@ -890,7 +890,7 @@ contains
          (ncolddays > ED_val_phen_ncolddayslim) .and. &
          (dayssincecleafon > ED_val_phen_mindayson) )then
        
-       currentSite%grow_deg_days  = 0._r8          ! The equations for Botta et al
+       currentSite%grow_deg_days  = 0._r8        ! The equations for Botta et al
                                                  ! are for calculations of 
                                                  ! first flush, but if we dont
                                                  ! clear this value, it will cause
@@ -907,10 +907,14 @@ contains
     ! when coupled with this fact will essentially prevent cold-deciduous
     ! plants from re-emerging in areas without at least some cold days
 
+    ! This logic corresponding to global implementation modification  - Jd
+    ! we don't want to kill the plants when there is a warm year, we just want to force leaf off
+    ! and they sould grow leaves if following year has chill day
+    ! if the climate has more warm year, then they will have more leaf off period and die naturally from carbon starvation
     if( (currentSite%cstatus == phen_cstat_notcold)  .and. &
-        (dayssincecleafoff > 400)) then           ! remove leaves after a whole year 
+        (dayssincecleafoff > 364)) then           ! remove leaves after a whole year 
                                                   ! when there is no 'off' period.  
-       currentSite%grow_deg_days  = 0._r8
+ !       currentSite%grow_deg_days  = 0._r8          ! no longer needed given GDD only start to accumulate on the 2nd day of the year
 
        currentSite%cstatus = phen_cstat_nevercold  ! alter status of site to imply that this
                                                    ! site is never really cold enough
